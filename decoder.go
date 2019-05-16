@@ -66,8 +66,7 @@ func (d *decoder) decodeControlByte() (Type, int) {
 	return t, size
 }
 
-func (d *decoder) decodeMap(fields []string) map[string]interface{} {
-	result := make(map[string]interface{})
+func (d *decoder) decodeMap(fields []string, result map[string]interface{}) {
 	_, mapSize := d.decodeControlByte()
 	for i := 0; i < mapSize; i++ {
 		key := d.decodeString()
@@ -77,10 +76,10 @@ func (d *decoder) decodeMap(fields []string) map[string]interface{} {
 			d.skipValue()
 		}
 	}
-	return result
 }
 
 func (d *decoder) skipValue() {
+	// TODO add other types
 	valueType, size := d.decodeControlByte()
 	switch valueType {
 	case Int32, Uint16, Uint32, Uint64, Uint128, String:

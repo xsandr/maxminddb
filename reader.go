@@ -1,6 +1,8 @@
 package maxmind
 
 import (
+	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net"
 )
@@ -27,5 +29,92 @@ func Open(filepath string) (*Reader, error) {
 
 // Lookup tries to find the IP in the buffer and puts requested fields into result map
 func (r *Reader) Lookup(ip net.IP, fields []string, result map[string]interface{}) error {
+	ipOffset, err := r.FindIPOffset(ip)
+	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16 // 16 is a data separator size
+
+	// ipOffset is a relative to data section, not the beginning of the buffer
+	ipOffset += (int(r.Metadata.RecordSize*2) / 8 * int(r.Metadata.NodeCount))
+	if err != nil {
+		return err
+	}
+	d := decoder{r.buffer, ipOffset}
+	d.decodeMap(fields, result)
 	return nil
+}
+
+// copy from net package
+var v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
+
+func (r *Reader) FindIPOffset(ipAddr net.IP) (int, error) {
+	nodeSizeInByte := int(r.Metadata.RecordSize * 2 / 8)
+
+	bitMask, size := convertIPToBigEndian(ipAddr)
+
+	offset := 0
+	if size == 32 {
+		offset = 96 * nodeSizeInByte
+	}
+
+	var v uint
+	for i := size - 1; i >= 0; i-- {
+		isLeft := (bitMask>>uint(i))&1 == 0
+		node := r.buffer[offset : offset+nodeSizeInByte]
+
+		switch r.Metadata.RecordSize {
+		case 28:
+			var b []byte
+			value := r.buffer[offset+3]
+			if isLeft {
+				b = node[:3]
+				value = value >> 4
+			} else {
+				value = value & 0x0F
+				b = node[4:]
+			}
+			v = uint(value)
+			for _, oneByte := range b {
+				v = v<<8 | uint(oneByte)
+			}
+
+		default:
+			var b []byte
+			if isLeft {
+				b = node[:nodeSizeInByte/2]
+			} else {
+				b = node[nodeSizeInByte/2:]
+			}
+			v := uint(b[0])
+			for _, oneByte := range b[1:] {
+				v = v<<8 | uint(oneByte)
+			}
+		}
+		if v == r.Metadata.NodeCount {
+			return 0, fmt.Errorf("couln't find the ip %s", ipAddr.String())
+		} else if v < r.Metadata.NodeCount {
+			offset = nodeSizeInByte * int(v)
+		} else {
+			return int(v), nil
+		}
+	}
+	if v == r.Metadata.NodeCount {
+		return 0, fmt.Errorf("couln't find the ip %s", ipAddr.String())
+	} else if v < r.Metadata.NodeCount {
+		offset = int(r.Metadata.RecordSize * v)
+	}
+	return int(v), nil
+}
+
+func convertIPToBigEndian(ipAddr net.IP) (uint, int) {
+	ip := []byte(ipAddr)
+	size := 128
+	if bytes.HasPrefix(ip, v4InV6Prefix) {
+		ip = ip[len(v4InV6Prefix):]
+		size = 32
+	}
+	v := uint(ip[0])
+	for _, i := range ip[1:] {
+		v = v<<8 | uint(i)
+	}
+	return v, size
+
 }

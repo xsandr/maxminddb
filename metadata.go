@@ -25,7 +25,9 @@ func ParseMetadata(buffer []byte) (*Metadata, error) {
 	d := decoder{buffer, start + len(metadataSeparator)}
 
 	fieldList := []string{"node_count", "record_size", "ip_version"}
-	data := d.decodeMap(fieldList)
+	data := make(map[string]interface{})
+	d.decodeMap(fieldList, data)
+
 	metadata := &Metadata{
 		NodeCount:  data["node_count"].(uint),
 		RecordSize: data["record_size"].(uint),

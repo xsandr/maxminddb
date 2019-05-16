@@ -6,9 +6,9 @@ import (
 )
 
 func TestMaxmindLookup(t *testing.T) {
-	ip := net.ParseIP("89.160.20.112")
+	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})
-	fields := []string{"country.iso_code"}
+	fields := []string{"country.iso_code", "country.names.en"}
 
 	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
 	if err != nil {
