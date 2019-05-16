@@ -29,16 +29,15 @@ func Open(filepath string) (*Reader, error) {
 
 // Lookup tries to find the IP in the buffer and puts requested fields into result map
 func (r *Reader) Lookup(ip net.IP, fields []string, result map[string]interface{}) error {
+	searchTreeSize := (int(r.Metadata.RecordSize*2) / 8 * int(r.Metadata.NodeCount)) + 16
 	ipOffset, err := r.FindIPOffset(ip)
-	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16 // 16 is a data separator size
-
-	// ipOffset is a relative to data section, not the beginning of the buffer
-	ipOffset += (int(r.Metadata.RecordSize*2) / 8 * int(r.Metadata.NodeCount))
 	if err != nil {
 		return err
 	}
-	d := decoder{r.buffer, ipOffset}
-	d.decodeMap(fields, result)
+	// ipOffset is a relative to data section, not the beginning of the buffer
+	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16
+	d := decoder{r.buffer[searchTreeSize:], ipOffset}
+	d.decodeDottedMap(fields, result)
 	return nil
 }
 

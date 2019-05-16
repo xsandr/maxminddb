@@ -1,5 +1,10 @@
 package maxmind
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Type uint
 
 const (
@@ -38,6 +43,41 @@ func (d *decoder) currentByte() byte {
 func (d *decoder) nextBytes(n int) []byte {
 	d.cursor += n
 	return d.buffer[d.cursor-n : d.cursor]
+}
+
+func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}) {
+	initialCursorOffset := d.cursor
+	for _, field := range fields {
+		d.cursor = initialCursorOffset
+		splittedFields := strings.Split(field, ".")
+		d.findField(field, splittedFields, result)
+	}
+}
+
+func (d *decoder) findField(field string, parts []string, result map[string]interface{}) {
+	if len(parts) == 0 {
+		result[field] = d.decodeValue()
+		return
+	}
+	searchFor, rest := parts[0], parts[1:]
+	dataType, mapSize := d.decodeControlByte()
+	if dataType == Pointer {
+		d.cursor = int(d.buffer[d.cursor])
+		dataType, mapSize = d.decodeControlByte()
+		if dataType != Map {
+			panic("something")
+		}
+	}
+
+	for i := 0; i < mapSize; i++ {
+		key := d.decodeString()
+		if key != searchFor {
+			d.skipValue()
+		} else {
+			d.findField(field, rest, result)
+			return
+		}
+	}
 }
 
 // assumes that offset point to control byte
@@ -83,7 +123,9 @@ func (d *decoder) skipValue() {
 	valueType, size := d.decodeControlByte()
 	switch valueType {
 	case Int32, Uint16, Uint32, Uint64, Uint128, String:
-		d.cursor += size
+		d.moveCarret(size)
+	case Pointer:
+		d.moveCarret(1)
 	case Array:
 		for i := 0; i < size; i++ {
 			d.skipValue()
@@ -108,8 +150,20 @@ func (d *decoder) decodeUint(n int) uint {
 }
 
 func (d *decoder) decodeString() string {
-	_, size := d.decodeControlByte()
-	return string(d.nextBytes(size))
+	stype, size := d.decodeControlByte()
+	switch stype {
+	case String:
+		return string(d.nextBytes(size))
+	case Pointer:
+		// resolve pointer right here
+		initial := d.cursor
+		d.cursor = int(d.buffer[d.cursor])
+		result := d.decodeString()
+		d.cursor = initial + 1
+		return result
+	default:
+		panic(fmt.Sprintf("Unexpected type %v", stype))
+	}
 }
 
 func (d *decoder) decodeValue() interface{} {

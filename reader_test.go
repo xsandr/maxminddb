@@ -8,6 +8,7 @@ import (
 func TestMaxmindLookup(t *testing.T) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})
+	// country iso_code
 	fields := []string{"country.iso_code", "country.names.en"}
 
 	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
@@ -26,7 +27,10 @@ func TestMaxmindLookup(t *testing.T) {
 	if !ok {
 		t.Error("couldn't convert isoCode to the string")
 	}
-	if isoCodeString != "SE" {
-		t.Error("isoCodeString != 'SE'")
+
+	countryName := result["country.names.en"].(string)
+	if isoCodeString != "GB" || countryName != "United Kingdom" {
+		t.Error()
 	}
+
 }
