@@ -8,7 +8,7 @@ import (
 // Reader provides methods for IP lookups
 type Reader struct {
 	buffer   []byte
-	Metadata Metadata
+	Metadata *Metadata
 }
 
 // Open reads the file and return ready to use Reader instance

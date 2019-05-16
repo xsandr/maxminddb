@@ -1,13 +1,20 @@
 package maxmind
 
-import "testing"
+import (
+	"io/ioutil"
+	"testing"
+)
 
 func TestMetadataParsing(t *testing.T) {
-	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	data, err := ioutil.ReadFile("test_data/test-data/GeoIP2-City-Test.mmdb")
 	if err != nil {
-		t.Fail()
+		t.Fatal()
 	}
-	if db.Metadata.NodeCount != 1200 {
-		t.Fail()
+	metadata, err := ParseMetadata(data)
+	if err != nil || metadata == nil {
+		t.Fatal()
+	}
+	if metadata.NodeCount != 1431 || metadata.RecordSize != 28 || metadata.IPVersion != 6 {
+		t.Fatal()
 	}
 }
