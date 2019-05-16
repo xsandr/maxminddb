@@ -34,3 +34,26 @@ func TestMaxmindLookup(t *testing.T) {
 	}
 
 }
+
+func BenchmarkMaxmindLookup(b *testing.B) {
+	ip := net.ParseIP("81.2.69.160")
+	result := make(map[string]interface{})
+	fields := []string{"country.iso_code", "country.names.en"}
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil || db == nil {
+		b.Fail()
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err = db.Lookup(ip, fields, result); err != nil {
+			b.Fail()
+		}
+		isoCode := result["country.iso_code"].(string)
+		countryName := result["country.names.en"].(string)
+
+		if isoCode != "GB" || countryName != "United Kingdom" {
+			b.Fail()
+		}
+	}
+}
