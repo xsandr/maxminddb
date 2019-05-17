@@ -2,6 +2,7 @@ package maxmind
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -60,9 +61,16 @@ func (d *decoder) findField(field string, parts []string, result map[string]inte
 		return
 	}
 	searchFor, rest := parts[0], parts[1:]
+	idx, err := strconv.Atoi(searchFor)
+	isIndex := err == nil
 	dataType, mapSize := d.decodeControlByte()
+	// TODO came up with proper error handling for these cases
+	if isIndex && dataType != Array {
+		panic(fmt.Sprintf("cannot use indices for the field: %s", field))
+	}
+
 	if dataType == Pointer {
-		d.cursor = int(d.buffer[d.cursor])
+		d.cursor = d.getPointerAddress()
 		dataType, mapSize = d.decodeControlByte()
 		if dataType != Map {
 			panic("something")
@@ -70,13 +78,37 @@ func (d *decoder) findField(field string, parts []string, result map[string]inte
 	}
 
 	for i := 0; i < mapSize; i++ {
-		key := d.decodeString()
-		if key != searchFor {
-			d.skipValue()
+		if isIndex {
+			if i == idx {
+				d.findField(field, rest, result)
+				return
+			}
 		} else {
-			d.findField(field, rest, result)
-			return
+			key := d.decodeString()
+			if key == searchFor {
+				d.findField(field, rest, result)
+				return
+			}
 		}
+		d.skipValue()
+	}
+}
+
+func (d *decoder) getPointerAddress() int {
+	// assume that we've just called decodeControlByte
+	// and realised that we have a pointer here
+	ctrlByte := d.buffer[d.cursor-1]
+	size := int(ctrlByte & 0x18 >> 3)
+
+	switch size {
+	default:
+		return int(ctrlByte&0x7)<<8 + int(d.currentByte())
+	case 1:
+		return 2048 + int(ctrlByte&0x7)<<16 | int(d.currentByte())<<8 | int(d.currentByte())
+	case 2:
+		return 526336 + int(ctrlByte&0x7)<<24 | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte())
+	case 3:
+		return int(d.currentByte())<<24 | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte())
 	}
 }
 
@@ -126,6 +158,10 @@ func (d *decoder) skipValue() {
 		d.moveCarret(size)
 	case Pointer:
 		d.moveCarret(1)
+	case Float:
+		d.moveCarret(4)
+	case Double:
+		d.moveCarret(8)
 	case Array:
 		for i := 0; i < size; i++ {
 			d.skipValue()
@@ -157,7 +193,7 @@ func (d *decoder) decodeString() string {
 	case Pointer:
 		// resolve pointer right here
 		initial := d.cursor
-		d.cursor = int(d.buffer[d.cursor])
+		d.cursor = d.getPointerAddress()
 		result := d.decodeString()
 		d.cursor = initial + 1
 		return result
