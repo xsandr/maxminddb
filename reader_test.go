@@ -86,6 +86,57 @@ func TestDouble(t *testing.T) {
 	}
 }
 
+func TestBool(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("81.2.69.160")
+	result := make(map[string]interface{})
+	fields := []string{"country.is_in_european_union"}
+
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+	// TODO adjust this test after Brexit
+	if isInEU, ok := result[fields[0]]; !ok {
+		t.Error("couldn't find country.is_in_european_union attribute")
+	} else if !isInEU.(bool) {
+		t.Errorf("british IP address must be in the EU")
+	}
+
+	// test US IP address
+	ip = net.ParseIP("216.160.83.56")
+	result = make(map[string]interface{}) // recreate map to avoid using stale results
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+	if _, ok := result[fields[0]]; ok {
+		t.Error("US IP addresses do not stor country.is_in_european_union attribute")
+	}
+}
+
+func TestInt(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("216.160.83.56")
+	result := make(map[string]interface{})
+	fields := []string{"location.metro_code"}
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+
+	if dma, ok := result[fields[0]]; !ok {
+		t.Error("couldn't find location.metro_code")
+	} else if dma.(uint) != 819 {
+		t.Errorf("incorrect location.metro_code")
+	}
+}
+
 func BenchmarkMaxmindLookup(b *testing.B) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})

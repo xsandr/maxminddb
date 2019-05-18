@@ -217,6 +217,8 @@ func (d *decoder) decodeValue() interface{} {
 	case Float:
 		u32 := binary.BigEndian.Uint32(d.nextBytes(size))
 		return math.Float32frombits(u32)
+	case Boolean:
+		return uint(d.currentByte()) > 0
 	default:
 		return nil
 	}
