@@ -57,14 +57,27 @@ func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}
 	}
 }
 
+func isNumber(s string) bool {
+	for _, char := range s {
+		if !('0' <= char && char <= '9') {
+			return false
+		}
+
+	}
+	return true
+}
+
 func (d *decoder) findField(field string, parts []string, result map[string]interface{}) {
 	if len(parts) == 0 {
 		result[field] = d.decodeValue()
 		return
 	}
 	searchFor, rest := parts[0], parts[1:]
-	idx, err := strconv.Atoi(searchFor)
-	isIndex := err == nil
+	isIndex := isNumber(searchFor)
+	var idx int
+	if isIndex {
+		idx, _ = strconv.Atoi(searchFor)
+	}
 	dataType, mapSize := d.decodeControlByte()
 	// TODO came up with proper error handling for these cases
 	if isIndex && dataType != Array {
