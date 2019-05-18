@@ -55,7 +55,35 @@ func TestArrayIndices(t *testing.T) {
 	if regionName.(string) != "England" {
 		t.Error()
 	}
+}
 
+func TestDouble(t *testing.T) {
+	ip := net.ParseIP("81.2.69.160")
+	result := make(map[string]interface{})
+	fields := []string{"location.latitude", "location.longitude"}
+
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+	if latitude, ok := result["location.latitude"]; !ok {
+		t.Error("couldn't find latitude")
+	} else {
+		if latitude.(float64) != 51.5142 {
+			t.Fail()
+		}
+	}
+	if longitude, ok := result["location.longitude"]; !ok {
+		t.Error("couldn't find longitude")
+	} else {
+		if longitude.(float64) != -0.0931 {
+			t.Fail()
+		}
+	}
 }
 
 func BenchmarkMaxmindLookup(b *testing.B) {

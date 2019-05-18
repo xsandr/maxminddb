@@ -1,7 +1,9 @@
 package maxmind
 
 import (
+	"encoding/binary"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -209,6 +211,12 @@ func (d *decoder) decodeValue() interface{} {
 		return string(d.nextBytes(size))
 	case Uint16, Uint32:
 		return d.decodeUint(size)
+	case Double:
+		u64 := binary.BigEndian.Uint64(d.nextBytes(size))
+		return math.Float64frombits(u64)
+	case Float:
+		u32 := binary.BigEndian.Uint32(d.nextBytes(size))
+		return math.Float32frombits(u32)
 	default:
 		return nil
 	}
