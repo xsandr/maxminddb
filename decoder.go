@@ -46,12 +46,15 @@ func (d *decoder) nextBytes(n int) []byte {
 	return d.buffer[d.cursor-n : d.cursor]
 }
 
-func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}) {
+func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}) error {
 	initialCursorOffset := d.cursor
 	for _, field := range fields {
 		d.cursor = initialCursorOffset
-		d.findField(field, []byte(field), result)
+		if err := d.findField(field, []byte(field), result); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func convertToInt(b []byte) int {
@@ -66,10 +69,10 @@ func isNum(char byte) bool {
 	return '0' <= char && char <= '9'
 }
 
-func (d *decoder) findField(field string, parts []byte, result map[string]interface{}) {
+func (d *decoder) findField(field string, parts []byte, result map[string]interface{}) error {
 	if len(parts) == 0 {
 		result[field] = d.decodeValue()
-		return
+		return nil
 	}
 
 	var searchFor []byte
@@ -97,34 +100,33 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 	}
 
 	dataType, mapSize := d.decodeControlByte()
-	// TODO came up with proper error handling for these cases
-	if isIndex && dataType != Array {
-		panic(fmt.Sprintf("cannot use indices for the field: %s", field))
-	}
-
 	if dataType == Pointer {
 		d.cursor = d.getPointerAddress()
 		dataType, mapSize = d.decodeControlByte()
-		if dataType != Map {
-			panic("something")
+	}
+
+	if isIndex {
+		if dataType != Array {
+			return fmt.Errorf("cannot use indices for the field: %s", field)
 		}
+	} else if dataType != Map {
+		return fmt.Errorf("expected a map for the field: %s", field)
 	}
 
 	for i := 0; i < mapSize; i++ {
 		if isIndex {
 			if i == idx {
-				d.findField(field, parts, result)
-				return
+				return d.findField(field, parts, result)
 			}
 		} else {
 			key := d.decodeStringAsBytes()
 			if equal(key, searchFor) {
-				d.findField(field, parts, result)
-				return
+				return d.findField(field, parts, result)
 			}
 		}
 		d.skipValue()
 	}
+	return nil
 }
 
 func equal(a, b []byte) bool {

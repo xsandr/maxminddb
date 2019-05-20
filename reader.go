@@ -37,8 +37,7 @@ func (r *Reader) Lookup(ip net.IP, fields []string, result map[string]interface{
 	// ipOffset is a relative to data section, not the beginning of the buffer
 	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16
 	d := decoder{r.buffer[searchTreeSize:], ipOffset}
-	d.decodeDottedMap(fields, result)
-	return nil
+	return d.decodeDottedMap(fields, result)
 }
 
 // copy from net package

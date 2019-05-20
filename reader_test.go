@@ -137,6 +137,36 @@ func TestInt(t *testing.T) {
 	}
 }
 
+func TestCannotFetchIntermediateNodes(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("216.160.83.56")
+	result := make(map[string]interface{})
+	fields := []string{"location"} // location is a map
+
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestUsingIndexesWithWrongType(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("216.160.83.56")
+	result := make(map[string]interface{})
+
+	if err = db.Lookup(ip, []string{"country.0.names"}, result); err == nil {
+		t.Error(err)
+	}
+
+}
+
 func Benchmark(b *testing.B) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})
