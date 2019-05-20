@@ -1,11 +1,11 @@
-#Maxmind-Reader
+#Maxminddb
 
 The package provides a reader that can make a lookup into maxmind db file and fetch only requested fields
 
 Example
 
 ```go
-	db, err := Open("path/to/GeoIP2-City.mmdb")
+	db, err := maxminddb.Open("path/to/GeoIP2-City.mmdb")
 	if err != nil {
 		t.Error(err)
 	}
