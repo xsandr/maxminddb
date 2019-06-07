@@ -145,26 +145,21 @@ func (d *decoder) getPointerAddress() int {
 	// assume that we've just called decodeControlByte
 	// and realised that we have a pointer here
 	ctrlByte := d.buffer[d.cursor-1]
-	size := int(ctrlByte & 0x18 >> 3)
-
-	switch size {
+	size := d.getSize(ctrlByte)
+	pointerByteSize := (size >> 3) & 0x3
+	switch pointerByteSize {
 	default:
-		return int(ctrlByte&0x7)<<8 + int(d.currentByte())
+		return (int(size&0x7) << 8) + int(d.currentByte())
 	case 1:
-		return 2048 + int(ctrlByte&0x7)<<16 | int(d.currentByte())<<8 | int(d.currentByte())
+		return 2048 + ((int(size&0x7) << 16) | int(d.currentByte())<<8 | int(d.currentByte()))
 	case 2:
-		return 526336 + int(ctrlByte&0x7)<<24 | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte())
+		return 526336 + ((int(size&0x7) << 24) | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte()))
 	case 3:
 		return int(d.currentByte())<<24 | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte())
 	}
 }
 
-// assumes that offset point to control byte
-func (d *decoder) decodeControlByte() (Type, int) {
-	ctrlByte := d.currentByte()
-	// first 3 bits represent type
-	t := Type(ctrlByte >> 5)
-
+func (d *decoder) getSize(ctrlByte uint8) int {
 	// last 5 bits represent the size of the data structure
 	size := int(ctrlByte & 0x1f)
 	// if size < 29 than it's size in bytes, otherwise:
@@ -177,11 +172,19 @@ func (d *decoder) decodeControlByte() (Type, int) {
 			size = 65821 + int(d.decodeUint(3))
 		}
 	}
+	return size
+}
 
+// assumes that offset point to control byte
+func (d *decoder) decodeControlByte() (Type, int) {
+	ctrlByte := d.currentByte()
+	// first 3 bits represent type
+	t := Type(ctrlByte >> 5)
 	if t == Extended {
 		// extended means that the next byte contains real type
 		t = Type(7 + d.currentByte())
 	}
+	size := d.getSize(ctrlByte)
 	return t, size
 }
 
@@ -204,7 +207,7 @@ func (d *decoder) skipValue() {
 	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes:
 		d.moveCarret(size)
 	case Pointer:
-		d.moveCarret(1)
+		d.getPointerAddress()
 	case Float:
 		d.moveCarret(4)
 	case Double:
@@ -238,10 +241,10 @@ func (d *decoder) decodeStringAsBytes() []byte {
 	case String:
 		return d.nextBytes(size)
 	case Pointer:
-		initial := d.cursor
-		d.cursor = d.getPointerAddress()
-		result := d.decodeStringAsBytes()
-		d.cursor = initial + 1
+		pointerOffset := d.getPointerAddress()
+		size := d.getSize(d.buffer[pointerOffset])
+		leftBound := pointerOffset + 1
+		result := d.buffer[leftBound : leftBound+size]
 		return result
 	default:
 		panic(fmt.Sprintf("Unexpected type %v", stype))
@@ -280,6 +283,9 @@ func (d *decoder) decodeValue() interface{} {
 		return math.Float32frombits(u32)
 	case Boolean:
 		return uint(d.currentByte()) > 0
+	case Pointer:
+		d.cursor = d.getPointerAddress()
+		return d.decodeValue()
 	default:
 		return nil
 	}

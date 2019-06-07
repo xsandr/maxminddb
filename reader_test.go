@@ -167,6 +167,23 @@ func TestUsingIndexesWithWrongType(t *testing.T) {
 
 }
 
+func BenchmarkForOnlyOneField(b *testing.B) {
+	ip := net.ParseIP("81.2.69.160")
+	result := make(map[string]interface{})
+	fields := []string{"country.names.en", "city.names.en", "country.is_in_european_union"}
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil || db == nil {
+		b.Fail()
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err = db.Lookup(ip, fields, result); err != nil {
+			b.Fail()
+		}
+	}
+}
+
 func Benchmark(b *testing.B) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})

@@ -102,16 +102,16 @@ func (r *Reader) FindIPOffset(ipAddr net.IP) (int, error) {
 	return int(v), nil
 }
 
-func convertIPToBigEndian(ipAddr net.IP) (uint, int) {
+func convertIPToBigEndian(ipAddr net.IP) (uint64, int) {
 	ip := []byte(ipAddr)
 	size := 128
 	if bytes.HasPrefix(ip, v4InV6Prefix) {
 		ip = ip[len(v4InV6Prefix):]
 		size = 32
 	}
-	v := uint(ip[0])
+	v := uint64(ip[0])
 	for _, i := range ip[1:] {
-		v = v<<8 | uint(i)
+		v = v<<8 | uint64(i)
 	}
 	return v, size
 
