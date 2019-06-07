@@ -1,4 +1,4 @@
-package maxmind
+package maxminddb
 
 import (
 	"bytes"

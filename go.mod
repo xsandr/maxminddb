@@ -1,3 +1,3 @@
-module github.com/xsandr/maxmind-reader
+module github.com/xsandr/maxminddb
 
 go 1.12
