@@ -1,6 +1,7 @@
 package maxminddb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -27,23 +28,12 @@ const (
 	Float
 )
 
+func NewDecoder(buffer []byte, initialOffset int) decoder {
+	return decoder{Cursor{buffer: buffer, cursor: initialOffset}}
+}
+
 type decoder struct {
-	buffer []byte
-	cursor int //cursor points on current position in the buffer
-}
-
-func (d *decoder) moveCarret(n int) {
-	d.cursor += n
-}
-
-func (d *decoder) currentByte() byte {
-	d.cursor += 1
-	return d.buffer[d.cursor-1]
-}
-
-func (d *decoder) nextBytes(n int) []byte {
-	d.cursor += n
-	return d.buffer[d.cursor-n : d.cursor]
+	Cursor
 }
 
 func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}) error {
@@ -55,18 +45,6 @@ func (d *decoder) decodeDottedMap(fields []string, result map[string]interface{}
 		}
 	}
 	return nil
-}
-
-func convertToInt(b []byte) int {
-	var result int
-	for _, char := range b {
-		result = result*10 + int(char-'0')
-	}
-	return result
-}
-
-func isNum(char byte) bool {
-	return '0' <= char && char <= '9'
 }
 
 func (d *decoder) findField(field string, parts []byte, result map[string]interface{}) error {
@@ -96,7 +74,7 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 
 	var idx int
 	if isIndex {
-		idx = convertToInt(searchFor)
+		idx = byteSliceToInt(searchFor)
 	}
 
 	dataType, mapSize := d.decodeControlByte()
@@ -120,7 +98,7 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 			}
 		} else {
 			key := d.decodeStringAsBytes()
-			if equal(key, searchFor) {
+			if bytes.Equal(key, searchFor) {
 				return d.findField(field, parts, result)
 			}
 		}
@@ -129,31 +107,18 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 	return nil
 }
 
-func equal(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, char := range a {
-		if char != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (d *decoder) getPointerAddress() int {
-	// assume that we've just called decodeControlByte
-	// and realised that we have a pointer here
+	// getPointerAddress might be called only after decodeControlByte
 	ctrlByte := d.buffer[d.cursor-1]
 	size := d.getSize(ctrlByte)
 	pointerByteSize := (size >> 3) & 0x3
 	switch pointerByteSize {
 	default:
-		return (int(size&0x7) << 8) + int(d.currentByte())
+		return ((size & 0x7) << 8) + int(d.currentByte())
 	case 1:
-		return 2048 + ((int(size&0x7) << 16) | int(d.currentByte())<<8 | int(d.currentByte()))
+		return 2048 + (((size & 0x7) << 16) | int(d.currentByte())<<8 | int(d.currentByte()))
 	case 2:
-		return 526336 + ((int(size&0x7) << 24) | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte()))
+		return 526336 + (((size & 0x7) << 24) | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte()))
 	case 3:
 		return int(d.currentByte())<<24 | int(d.currentByte())<<16 | int(d.currentByte())<<8 | int(d.currentByte())
 	}
@@ -175,33 +140,19 @@ func (d *decoder) getSize(ctrlByte uint8) int {
 	return size
 }
 
-// assumes that offset point to control byte
 func (d *decoder) decodeControlByte() (Type, int) {
 	ctrlByte := d.currentByte()
 	// first 3 bits represent type
 	t := Type(ctrlByte >> 5)
 	if t == Extended {
-		// extended means that the next byte contains real type
+		// extended - means that the 7 + the values in the next byte represent real type
 		t = Type(7 + d.currentByte())
 	}
 	size := d.getSize(ctrlByte)
 	return t, size
 }
 
-func (d *decoder) decodeMap(fields []string, result map[string]interface{}) {
-	_, mapSize := d.decodeControlByte()
-	for i := 0; i < mapSize; i++ {
-		key := d.decodeString()
-		if contains(fields, key) {
-			result[key] = d.decodeValue()
-		} else {
-			d.skipValue()
-		}
-	}
-}
-
 func (d *decoder) skipValue() {
-	// TODO add other types
 	valueType, size := d.decodeControlByte()
 	switch valueType {
 	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes:
@@ -218,12 +169,11 @@ func (d *decoder) skipValue() {
 		}
 	case Map:
 		for i := 0; i < size; i++ {
-			// skip key and value
+			// for map we have to skip both: key and value
 			d.skipValue()
 			d.skipValue()
 		}
 	}
-
 }
 
 func (d *decoder) decodeUint(n int) uint {
@@ -264,7 +214,7 @@ func (d *decoder) decodeString() string {
 		d.cursor = initial + 1
 		return result
 	default:
-		panic(fmt.Sprintf("Unexpected type %v", stype))
+		panic(fmt.Sprintf("Unexpected type for string decoding: %v", stype))
 	}
 }
 
@@ -291,11 +241,14 @@ func (d *decoder) decodeValue() interface{} {
 	}
 }
 
-func contains(a []string, x string) bool {
-	for _, n := range a {
-		if x == n {
-			return true
-		}
+func byteSliceToInt(b []byte) int {
+	var result int
+	for _, char := range b {
+		result = result*10 + int(char-'0')
 	}
-	return false
+	return result
+}
+
+func isNum(char byte) bool {
+	return '0' <= char && char <= '9'
 }

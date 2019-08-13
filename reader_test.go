@@ -117,6 +117,26 @@ func TestBool(t *testing.T) {
 	}
 }
 
+func TestUint(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("216.160.83.56")
+	result := make(map[string]interface{})
+	fields := []string{"location.metro_code"}
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+
+	if dma, ok := result[fields[0]]; !ok {
+		t.Error("couldn't find location.metro_code")
+	} else if dma.(uint) != 819 {
+		t.Errorf("incorrect location.metro_code")
+	}
+}
+
 func TestInt(t *testing.T) {
 	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
 	if err != nil {

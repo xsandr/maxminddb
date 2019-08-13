@@ -13,6 +13,9 @@ type Reader struct {
 	Metadata *Metadata
 }
 
+// prefix was copied from net package cause it is not available via public API
+var v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
+
 // Open reads the file and return ready to use Reader instance
 func Open(filepath string) (*Reader, error) {
 	data, err := ioutil.ReadFile(filepath)
@@ -30,20 +33,17 @@ func Open(filepath string) (*Reader, error) {
 // Lookup tries to find the IP in the buffer and puts requested fields into result map
 func (r *Reader) Lookup(ip net.IP, fields []string, result map[string]interface{}) error {
 	searchTreeSize := (int(r.Metadata.RecordSize*2) / 8 * int(r.Metadata.NodeCount)) + 16
-	ipOffset, err := r.FindIPOffset(ip)
+	ipOffset, err := r.findIPOffset(ip)
 	if err != nil {
 		return err
 	}
 	// ipOffset is a relative to data section, not the beginning of the buffer
 	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16
-	d := decoder{r.buffer[searchTreeSize:], ipOffset}
+	d := NewDecoder(r.buffer[searchTreeSize:], ipOffset)
 	return d.decodeDottedMap(fields, result)
 }
 
-// copy from net package
-var v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
-
-func (r *Reader) FindIPOffset(ipAddr net.IP) (int, error) {
+func (r *Reader) findIPOffset(ipAddr net.IP) (int, error) {
 	nodeSizeInByte := int(r.Metadata.RecordSize * 2 / 8)
 
 	bitMask, size := convertIPToBigEndian(ipAddr)

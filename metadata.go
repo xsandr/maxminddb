@@ -22,11 +22,13 @@ func ParseMetadata(buffer []byte) (*Metadata, error) {
 		return nil, fmt.Errorf("couldn't find a metadata section separator")
 	}
 
-	d := decoder{buffer, start + len(metadataSeparator)}
+	d := NewDecoder(buffer, start+len(metadataSeparator))
 
 	fieldList := []string{"node_count", "record_size", "ip_version"}
 	data := make(map[string]interface{})
-	d.decodeMap(fieldList, data)
+	if err := d.decodeDottedMap(fieldList, data); err != nil {
+		return nil, err
+	}
 
 	metadata := &Metadata{
 		NodeCount:  data["node_count"].(uint),
