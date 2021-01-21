@@ -85,10 +85,10 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 
 	if isIndex {
 		if dataType != Array {
-			return fmt.Errorf("cannot use indices for the field: %s", field)
+			return fmt.Errorf("cannot use indices for the field")
 		}
 	} else if dataType != Map {
-		return fmt.Errorf("expected a map for the field: %s", field)
+		return fmt.Errorf("expected a map")
 	}
 
 	for i := 0; i < mapSize; i++ {
@@ -124,6 +124,7 @@ func (d *decoder) getPointerAddress() int {
 	}
 }
 
+// TODO check if its inlined
 func (d *decoder) getSize(ctrlByte uint8) int {
 	// last 5 bits represent the size of the data structure
 	size := int(ctrlByte & 0x1f)
@@ -205,7 +206,7 @@ func (d *decoder) decodeString() string {
 	stype, size := d.decodeControlByte()
 	switch stype {
 	case String:
-		return string(d.nextBytes(size))
+		return BytesToString(d.nextBytes(size))
 	case Pointer:
 		// resolve pointer right here
 		initial := d.cursor
@@ -214,7 +215,7 @@ func (d *decoder) decodeString() string {
 		d.cursor = initial + 1
 		return result
 	default:
-		panic(fmt.Sprintf("Unexpected type for string decoding: %v", stype))
+		panic("unexpected type for string decoding")
 	}
 }
 
@@ -222,7 +223,8 @@ func (d *decoder) decodeValue() interface{} {
 	dataType, size := d.decodeControlByte()
 	switch dataType {
 	case String:
-		return string(d.nextBytes(size))
+		byteSlice := d.nextBytes(size)
+		return BytesToString(byteSlice)
 	case Uint16, Uint32:
 		return d.decodeUint(size)
 	case Double:

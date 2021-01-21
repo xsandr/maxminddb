@@ -203,7 +203,7 @@ func TestMissingIP(t *testing.T) {
 func BenchmarkForOnlyOneField(b *testing.B) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})
-	fields := []string{"country.names.en", "city.names.en", "country.is_in_european_union"}
+	fields := []string{"country.names.en"}
 	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
 	if err != nil || db == nil {
 		b.Fail()
@@ -220,7 +220,7 @@ func BenchmarkForOnlyOneField(b *testing.B) {
 func Benchmark(b *testing.B) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})
-	fields := []string{"country.iso_code", "country.names.en"}
+	fields := []string{"country.iso_code", "country.names.en", "city.names.en"}
 	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
 	if err != nil || db == nil {
 		b.Fail()
