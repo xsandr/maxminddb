@@ -87,7 +87,7 @@ func (r *Reader) findIPOffset(ipAddr net.IP) (int, error) {
 			}
 		}
 		if v == r.Metadata.NodeCount {
-			return 0, fmt.Errorf("couln't find the ip %s", ipAddr.String())
+			return 0, fmt.Errorf("couldn't find the ip %s", ipAddr.String())
 		} else if v < r.Metadata.NodeCount {
 			offset = nodeSizeInByte * int(v)
 		} else {
@@ -95,7 +95,7 @@ func (r *Reader) findIPOffset(ipAddr net.IP) (int, error) {
 		}
 	}
 	if v == r.Metadata.NodeCount {
-		return 0, fmt.Errorf("couln't find the ip %s", ipAddr.String())
+		return 0, fmt.Errorf("couldn't find the ip %s", ipAddr.String())
 	} else if v < r.Metadata.NodeCount {
 		offset = int(r.Metadata.RecordSize * v)
 	}
