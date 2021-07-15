@@ -2,7 +2,7 @@ package maxminddb
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net"
 )
@@ -15,6 +15,8 @@ type Reader struct {
 
 // prefix was copied from net package cause it is not available via public API
 var v4InV6Prefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}
+
+var errIPNotFound = errors.New("ip not found")
 
 // Open reads the file and return ready to use Reader instance
 func Open(filepath string) (*Reader, error) {
@@ -35,7 +37,7 @@ func (r *Reader) Lookup(ip net.IP, fields []string, result map[string]interface{
 	searchTreeSize := (int(r.Metadata.RecordSize*2) / 8 * int(r.Metadata.NodeCount)) + 16
 	ipOffset, err := r.findIPOffset(ip)
 	if err != nil {
-		return err
+		return nil
 	}
 	// ipOffset is a relative to data section, not the beginning of the buffer
 	ipOffset = ipOffset - int(r.Metadata.NodeCount) - 16
@@ -87,7 +89,7 @@ func (r *Reader) findIPOffset(ipAddr net.IP) (int, error) {
 			}
 		}
 		if v == r.Metadata.NodeCount {
-			return 0, fmt.Errorf("couldn't find the ip %s", ipAddr.String())
+			return 0, errIPNotFound
 		} else if v < r.Metadata.NodeCount {
 			offset = nodeSizeInByte * int(v)
 		} else {
@@ -95,7 +97,7 @@ func (r *Reader) findIPOffset(ipAddr net.IP) (int, error) {
 		}
 	}
 	if v == r.Metadata.NodeCount {
-		return 0, fmt.Errorf("couldn't find the ip %s", ipAddr.String())
+		return 0, errIPNotFound
 	} else if v < r.Metadata.NodeCount {
 		offset = int(r.Metadata.RecordSize * v)
 	}

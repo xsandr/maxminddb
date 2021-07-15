@@ -184,7 +184,20 @@ func TestUsingIndexesWithWrongType(t *testing.T) {
 	if err = db.Lookup(ip, []string{"country.0.names"}, result); err == nil {
 		t.Error(err)
 	}
+}
 
+func TestMissingIP(t *testing.T) {
+	db, err := Open("test_data/test-data/GeoIP2-City-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ip := net.ParseIP("216.160.0.0")
+	result := make(map[string]interface{})
+
+	if err = db.Lookup(ip, []string{"country.0.names"}, result); err != nil {
+		t.Error("missing IP address shouldn't return err: %w", err)
+	}
 }
 
 func BenchmarkForOnlyOneField(b *testing.B) {
