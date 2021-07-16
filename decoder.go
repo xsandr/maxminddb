@@ -124,7 +124,6 @@ func (d *decoder) getPointerAddress() int {
 	}
 }
 
-// TODO check if its inlined
 func (d *decoder) getSize(ctrlByte uint8) int {
 	// last 5 bits represent the size of the data structure
 	size := int(ctrlByte & 0x1f)
@@ -156,14 +155,12 @@ func (d *decoder) decodeControlByte() (Type, int) {
 func (d *decoder) skipValue() {
 	valueType, size := d.decodeControlByte()
 	switch valueType {
-	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes:
-		d.moveCarret(size)
+	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes, Double:
+		d.moveCaret(size)
 	case Pointer:
 		d.getPointerAddress()
 	case Float:
-		d.moveCarret(4)
-	case Double:
-		d.moveCarret(8)
+		d.moveCaret(4)
 	case Array:
 		for i := 0; i < size; i++ {
 			d.skipValue()
@@ -177,11 +174,12 @@ func (d *decoder) skipValue() {
 	}
 }
 
+// range loops cannot be inlined
 func (d *decoder) decodeUint(n int) uint {
 	bytesToDecode := d.nextBytes(n)
 	v := uint(bytesToDecode[0])
-	for _, b := range bytesToDecode[1:] {
-		v = v<<8 | uint(b)
+	for i:=1;i<len(bytesToDecode);i++{
+		v = v<<8 | uint(bytesToDecode[i])
 	}
 	return v
 }
@@ -198,7 +196,7 @@ func (d *decoder) decodeStringAsBytes() []byte {
 		result := d.buffer[leftBound : leftBound+size]
 		return result
 	default:
-		panic(fmt.Sprintf("Unexpected type %v", stype))
+		panic("unexpected type")
 	}
 }
 
@@ -234,7 +232,7 @@ func (d *decoder) decodeValue() interface{} {
 		u32 := binary.BigEndian.Uint32(d.nextBytes(size))
 		return math.Float32frombits(u32)
 	case Boolean:
-		return uint(d.currentByte()) > 0
+		return d.currentByte() > 0
 	case Pointer:
 		d.cursor = d.getPointerAddress()
 		return d.decodeValue()
@@ -245,8 +243,8 @@ func (d *decoder) decodeValue() interface{} {
 
 func byteSliceToInt(b []byte) int {
 	var result int
-	for _, char := range b {
-		result = result*10 + int(char-'0')
+	for i:=0;i<len(b);i++{
+		result = result*10 + int(b[i]-'0')
 	}
 	return result
 }

@@ -5,7 +5,7 @@ type Cursor struct {
 	cursor int
 }
 
-func (c *Cursor) moveCarret(n int) {
+func (c *Cursor) moveCaret(n int) {
 	c.cursor += n
 }
 
