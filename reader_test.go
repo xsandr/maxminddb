@@ -34,6 +34,25 @@ func TestMaxmindLookup(t *testing.T) {
 
 }
 
+func TestMaxmindLookupISP(t *testing.T) {
+	ip := net.ParseIP("81.2.69.160")
+	result := make(map[string]interface{})
+	fields := []string{
+		"isp",
+	}
+	db, err := Open("test_data/test-data/GeoIP2-ISP-Test.mmdb")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if err = db.Lookup(ip, fields, result); err != nil {
+		t.Error(err)
+	}
+	if result["isp"].(string) == "" {
+		t.Fail()
+	}
+}
+
 func TestArrayIndices(t *testing.T) {
 	ip := net.ParseIP("81.2.69.160")
 	result := make(map[string]interface{})

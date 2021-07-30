@@ -77,10 +77,10 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 		idx = byteSliceToInt(searchFor)
 	}
 
-	dataType, mapSize := d.decodeControlByte()
+	dataType, size := d.decodeControlByte()
 	if dataType == Pointer {
 		d.cursor = d.getPointerAddress()
-		dataType, mapSize = d.decodeControlByte()
+		dataType, size = d.decodeControlByte()
 	}
 
 	if isIndex {
@@ -91,7 +91,7 @@ func (d *decoder) findField(field string, parts []byte, result map[string]interf
 		return fmt.Errorf("expected a map")
 	}
 
-	for i := 0; i < mapSize; i++ {
+	for i := 0; i < size; i++ {
 		if isIndex {
 			if i == idx {
 				return d.findField(field, parts, result)
@@ -113,7 +113,7 @@ func (d *decoder) getPointerAddress() int {
 	size := d.getSize(ctrlByte)
 	pointerByteSize := (size >> 3) & 0x3
 	switch pointerByteSize {
-	default:
+	default: // 0
 		return ((size & 0x7) << 8) + int(d.currentByte())
 	case 1:
 		return 2048 + (((size & 0x7) << 16) | int(d.currentByte())<<8 | int(d.currentByte()))
@@ -155,12 +155,14 @@ func (d *decoder) decodeControlByte() (Type, int) {
 func (d *decoder) skipValue() {
 	valueType, size := d.decodeControlByte()
 	switch valueType {
-	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes, Double:
+	case Int32, Uint16, Uint32, Uint64, Uint128, String, Bytes:
 		d.moveCaret(size)
 	case Pointer:
 		d.getPointerAddress()
 	case Float:
 		d.moveCaret(4)
+	case Double:
+		d.moveCaret(8)
 	case Array:
 		for i := 0; i < size; i++ {
 			d.skipValue()
@@ -174,7 +176,6 @@ func (d *decoder) skipValue() {
 	}
 }
 
-// range loops cannot be inlined
 func (d *decoder) decodeUint(n int) uint {
 	bytesToDecode := d.nextBytes(n)
 	v := uint(bytesToDecode[0])
@@ -191,9 +192,11 @@ func (d *decoder) decodeStringAsBytes() []byte {
 		return d.nextBytes(size)
 	case Pointer:
 		pointerOffset := d.getPointerAddress()
+		initial := d.cursor
+		d.cursor = pointerOffset + 1
 		size := d.getSize(d.buffer[pointerOffset])
-		leftBound := pointerOffset + 1
-		result := d.buffer[leftBound : leftBound+size]
+		result := d.buffer[d.cursor : d.cursor+size]
+		d.cursor = initial
 		return result
 	default:
 		panic("unexpected type")
