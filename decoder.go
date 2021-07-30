@@ -203,23 +203,6 @@ func (d *decoder) decodeStringAsBytes() []byte {
 	}
 }
 
-func (d *decoder) decodeString() string {
-	stype, size := d.decodeControlByte()
-	switch stype {
-	case String:
-		return BytesToString(d.nextBytes(size))
-	case Pointer:
-		// resolve pointer right here
-		initial := d.cursor
-		d.cursor = d.getPointerAddress()
-		result := d.decodeString()
-		d.cursor = initial + 1
-		return result
-	default:
-		panic("unexpected type for string decoding")
-	}
-}
-
 func (d *decoder) decodeValue() interface{} {
 	dataType, size := d.decodeControlByte()
 	switch dataType {
