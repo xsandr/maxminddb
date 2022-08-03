@@ -13,10 +13,11 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-    - name: Checkout submodules
+    - name: Pull & update submodules recursively
       run: |
-        git pull --recursive-submodules
-        git submodule update --remote --recursive
+        git submodule update --init --recursive
+        git submodule update --recursive --remote
+
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
